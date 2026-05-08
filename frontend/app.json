@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "NAIMIRIS",
+    "slug": "naimiris",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}
