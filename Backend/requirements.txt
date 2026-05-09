@@ -4,3 +4,5 @@ httpx
 matplotlib
 reportlab
 python-dotenv
+python-multipart
+ultralytics

@@ -38,3 +38,32 @@ class PestControlAnalysisResponse(BaseModel):
     environmental_status: Dict[str, EnvironmentalParameterStatus]
     issues: List[str]
     recommendations: List[str]
+
+
+class PestDetectionPrediction(BaseModel):
+    pest_name: str
+    disease_name: str
+    confidence: float
+    class_id: Optional[int] = None
+    bounding_box: Optional[List[float]] = None
+    affected_area_ratio: float = 0.0
+
+
+class TreatmentRecommendation(BaseModel):
+    pesticide_name: str
+    dosage: str
+    application_method: str
+    safety_note: str
+
+
+class PestDiseasePredictionResponse(BaseModel):
+    filename: Optional[str] = None
+    model: str
+    pest_name: str
+    disease_name: str
+    confidence: float
+    severity: str
+    affected_area_ratio: float
+    treatment_recommendation: str
+    treatment: TreatmentRecommendation
+    predictions: List[PestDetectionPrediction]

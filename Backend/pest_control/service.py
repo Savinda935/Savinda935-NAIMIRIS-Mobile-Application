@@ -4,7 +4,8 @@ from .models import (
     EnvironmentalParameterStatus,
     PestControlAnalysisRequest,
     PestControlAnalysisResponse,
-    StageInfo
+    StageInfo,
+    TreatmentRecommendation
 )
 
 
@@ -40,6 +41,68 @@ STAGE_ALIASES = {
     "fruiting ripening": "fruiting_ripening",
     "fruiting & ripening": "fruiting_ripening",
     "fruiting and ripening": "fruiting_ripening",
+}
+
+SEVERITY_THRESHOLDS = {
+    "low": 0.10,
+    "medium": 0.30,
+}
+
+TREATMENT_GUIDELINES = {
+    "thrips": {
+        "pesticide_name": "Spinosad",
+        "dosages": {
+            "low": "0.3 ml/L",
+            "medium": "0.5 ml/L",
+            "high": "0.7 ml/L"
+        },
+        "application_method": "Spray both upper and lower leaf surfaces in the evening."
+    },
+    "aphid": {
+        "pesticide_name": "Neem oil or imidacloprid",
+        "dosages": {
+            "low": "Neem oil 2 ml/L",
+            "medium": "Neem oil 3 ml/L",
+            "high": "Use registered imidacloprid according to label guidance"
+        },
+        "application_method": "Target new shoots and leaf undersides where colonies appear."
+    },
+    "mite": {
+        "pesticide_name": "Abamectin",
+        "dosages": {
+            "low": "0.3 ml/L",
+            "medium": "0.5 ml/L",
+            "high": "0.6 ml/L"
+        },
+        "application_method": "Spray leaf undersides and repeat only if infestation continues."
+    },
+    "whitefly": {
+        "pesticide_name": "Neem oil or yellow sticky traps",
+        "dosages": {
+            "low": "Use yellow sticky traps and neem oil 2 ml/L",
+            "medium": "Neem oil 3 ml/L",
+            "high": "Use a registered whitefly pesticide according to label guidance"
+        },
+        "application_method": "Combine spraying with sticky traps and remove heavily infested leaves."
+    },
+    "leaf spot": {
+        "pesticide_name": "Copper-based fungicide",
+        "dosages": {
+            "low": "1 g/L",
+            "medium": "2 g/L",
+            "high": "2.5 g/L"
+        },
+        "application_method": "Remove infected leaves and spray evenly during dry weather."
+    },
+    "default": {
+        "pesticide_name": "Neem-based botanical spray",
+        "dosages": {
+            "low": "2 ml/L",
+            "medium": "3 ml/L",
+            "high": "4 ml/L"
+        },
+        "application_method": "Apply in the evening and monitor plant response before repeating."
+    }
 }
 
 
@@ -169,6 +232,59 @@ def decide_growth_status(stage_mismatch: bool, environment_issue_count: int, not
         return "slow"
 
     return "normal"
+
+
+def estimate_severity(affected_area_ratio: float) -> str:
+    """Classify pest severity from the detected damaged-area ratio."""
+    if affected_area_ratio <= 0:
+        return "none"
+
+    if affected_area_ratio < SEVERITY_THRESHOLDS["low"]:
+        return "low"
+
+    if affected_area_ratio < SEVERITY_THRESHOLDS["medium"]:
+        return "medium"
+
+    return "high"
+
+
+def find_treatment_guideline(pest_name: str) -> Dict[str, object]:
+    normalized_name = pest_name.strip().lower()
+    for key, guideline in TREATMENT_GUIDELINES.items():
+        if key != "default" and key in normalized_name:
+            return guideline
+
+    return TREATMENT_GUIDELINES["default"]
+
+
+def recommend_treatment(pest_name: str, severity: str) -> TreatmentRecommendation:
+    if severity == "none":
+        return TreatmentRecommendation(
+            pesticide_name="No pesticide required",
+            dosage="0",
+            application_method="Continue observation and upload another image if symptoms appear.",
+            safety_note="Avoid unnecessary spraying when no pest or disease is detected."
+        )
+
+    guideline = find_treatment_guideline(pest_name)
+    dosage = guideline["dosages"].get(severity, guideline["dosages"]["low"])
+    return TreatmentRecommendation(
+        pesticide_name=guideline["pesticide_name"],
+        dosage=dosage,
+        application_method=guideline["application_method"],
+        safety_note="Wear gloves and a mask, follow the product label, and avoid spraying near harvest."
+    )
+
+
+def build_treatment_summary(pest_name: str, severity: str, treatment: TreatmentRecommendation) -> str:
+    if severity == "none":
+        return "No pest or disease was detected. Continue routine monitoring."
+
+    return (
+        f"{severity.title()} severity detected for {pest_name}. "
+        f"Recommended treatment: {treatment.pesticide_name} at {treatment.dosage}. "
+        f"{treatment.application_method}"
+    )
 
 
 def analyze_growth_guidance(request: PestControlAnalysisRequest) -> PestControlAnalysisResponse:

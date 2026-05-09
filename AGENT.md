@@ -112,6 +112,8 @@ Current main dependencies:
 - `matplotlib`
 - `reportlab`
 - `python-dotenv`
+- `python-multipart`
+- `ultralytics`
 
 ### `Backend/iot_readings.db`
 
@@ -177,7 +179,7 @@ Pre-analysis screens already exist, but currently mostly use placeholder/mock lo
 Pest control screens also exist with placeholder/mock logic:
 
 - `PestServicesScreen.js`
-- `PestDetectionScreen.js`
+- `PestDetectionScreen.js`: re-exports the connected Tashini pest-detection screen from `frontend/src/features/pestControl/screens/PestDetectionScreen.js`
 - `SeverityAnalysisScreen.js`
 - `TreatmentPlanScreen.js`
 
@@ -202,6 +204,18 @@ Important files:
 - `aiService.js`: calls backend AI alert endpoint
 - `iotService.js`: ThingSpeak-related helper
 - `storage.js`: local JSON storage using Expo FileSystem
+
+### `frontend/src/config/api.js`
+
+Contains the configurable backend base URL used by Tashini's frontend pest-control API client.
+
+Resolution order:
+
+- `EXPO_PUBLIC_BACKEND_BASE_URL`
+- Expo dev host IP with port `8000`
+- PC IPv4 fallback currently set to `http://10.68.28.18:8000`
+
+Do not use `localhost` for mobile-device API calls.
 
 ### `frontend/src/state/`
 
@@ -304,7 +318,7 @@ This should contain frontend API calls for Krishan's backend endpoints.
 - `__pycache__` files should not be committed.
 - `frontend/src/services/apiClient.js` currently has a placeholder base URL.
 - Monitoring logic is duplicated in frontend and backend.
-- Krishan and Tashini backend modules are not implemented yet.
+- Krishan and Tashini backend modules are implemented as separate backend modules.
 - Backend route paths currently have no monitoring-specific prefix, so new modules should use separate prefixes to avoid conflicts.
 - Some frontend pre-analysis and pest-control logic is mock/demo logic, not production backend integration.
 
@@ -328,7 +342,12 @@ The safest approach is to add Krishan's component as a new independent module fi
 - Do not place Tashini's backend logic inside `Backend/guidance/`.
 - Do not place Tashini's backend logic inside `Backend/monitoring/`.
 - Tashini's router is registered in `Backend/main.py` with the prefix `/api/pest-control`.
-- The initial implementation uses simple rule-based logic only; no real AI or ML model is integrated yet.
+- Tashini's module contains both rule-based growth guidance and a YOLO-based disease prediction endpoint.
+- The YOLO integration is isolated in `Backend/pest_control/ai_model.py`.
+- The default model file is `Backend/pest_control/best.pt`.
+- The model path can be overridden with the `PEST_CONTROL_MODEL_PATH` environment variable.
+- Image uploads use FastAPI `UploadFile`, so `python-multipart` is required.
+- YOLO inference uses the `ultralytics` package.
 - Keep Savinda's monitoring endpoints working exactly as they currently do.
 - Avoid changing Krishan's `Backend/preanalysis/` module unless import compatibility requires it.
 
@@ -337,6 +356,8 @@ Current Tashini backend files:
 ```text
 Backend/pest_control/
   __init__.py
+  ai_model.py
+  best.pt
   models.py
   service.py
   routes.py
@@ -347,3 +368,93 @@ Current Tashini endpoints:
 - `GET /api/pest-control/health`
 - `GET /api/pest-control/stages`
 - `POST /api/pest-control/analyze`
+- `POST /api/pest-control/predict-disease`
+
+### `Backend/pest_control/ai_model.py`
+
+Loads the trained YOLO model using Ultralytics and exposes:
+
+- `predict_disease(image_path)`
+
+This function accepts a local image path, runs YOLO prediction, and returns:
+
+- best detected disease name
+- confidence score
+- bounding boxes
+- affected-area ratio estimate
+- full prediction list
+
+### `POST /api/pest-control/predict-disease`
+
+Accepts a multipart image upload, saves it temporarily, runs `predict_disease(image_path)`, returns JSON predictions, and removes the temporary image file after inference.
+
+The response is aligned with Tashini's proposal for AI-driven pest monitoring and control:
+
+- detects pest/disease from Nai Miris leaf images
+- estimates severity as `none`, `low`, `medium`, or `high`
+- estimates affected leaf area from YOLO bounding boxes
+- returns pesticide/treatment recommendation
+- returns dosage and safety guidance
+
+Do not mix this model-loading code into `models.py`, `service.py`, or `Backend/monitoring/`. Keep ML inference isolated so the team can test and replace the trained model safely.
+
+## 11. Tashini Frontend Connection Status
+
+Tashini's React Native pest-detection frontend is connected to the existing FastAPI pest-control backend.
+
+Current frontend files:
+
+```text
+frontend/src/features/pestControl/
+  api/
+    pestApi.js
+  screens/
+    PestDetectionScreen.js
+  pestDetector.js
+  severityScoring.js
+  treatmentAdvisor.js
+```
+
+The original navigation screen remains at:
+
+```text
+frontend/src/screens/PestDetectionScreen.js
+```
+
+It re-exports the feature screen so existing `RootNavigator.js` and `TabNavigator.js` imports keep working.
+
+Current frontend API functions:
+
+- `predictDiseaseFromImage(imageAsset)`
+- `checkPestControlHealth()`
+
+Connected backend endpoint:
+
+- `POST /api/pest-control/predict-disease`
+
+Request format:
+
+- multipart form-data
+- field name: `image`
+
+Expected backend response fields currently used by the UI:
+
+- `filename`
+- `model`
+- `pest_name`
+- `disease_name`
+- `confidence`
+- `severity`
+- `affected_area_ratio`
+- `treatment_recommendation`
+- `treatment`
+- `predictions`
+
+The frontend displays severity and treatment recommendation when these values are returned by the backend.
+
+Frontend dependencies added for this integration:
+
+- `axios`
+- `expo-image-picker`
+
+Keep Savinda's monitoring frontend and Krishan's pre-analysis frontend unchanged when working on Tashini's pest-control UI.
