@@ -8,6 +8,7 @@ load_dotenv()
 
 from monitoring.routes import router as monitoring_router
 from monitoring.service import init_db, start_firebase_poller, stop_firebase_poller
+from preanalysis.routes import router as preanalysis_router
 
 app = FastAPI(title="IoT Monitoring Backend", version="1.0.0")
 
@@ -37,3 +38,4 @@ def health_check() -> Dict[str, str]:
 
 
 app.include_router(monitoring_router)
+app.include_router(preanalysis_router)
