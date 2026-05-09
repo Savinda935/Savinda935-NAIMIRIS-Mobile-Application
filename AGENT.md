@@ -4,9 +4,9 @@
 
 This repository currently contains Savinda's **Technology-Assisted A-to-Z Farming Guidance / IoT Monitoring** component for the NAIMIRIS mobile application.
 
-It also contains a shared **React Native / Expo mobile app shell** that already has screens and folders for the other planned components, including Krishan's Pre-Analysis component and Tashini's Pest Control component.
+It also contains a shared **React Native / Expo mobile app shell** that already has screens and folders for the other planned components, including Krishan's Pre-Analysis component and Tashini's Technology-Assisted A-to-Z Farming Guidance component.
 
-At the moment, Savinda's monitoring backend is the only substantially implemented backend module. Krishan and Tashini should use the existing structure as a template, but their backend logic should be added in separate modules.
+Savinda's monitoring backend, Krishan's pre-analysis backend, and Tashini's initial guidance backend are implemented as separate FastAPI modules. New component logic should stay in separate modules and must not be placed inside `Backend/monitoring/`.
 
 ## 2. Savinda's Component Status
 
@@ -321,3 +321,29 @@ This should contain frontend API calls for Krishan's backend endpoints.
 9. Add proper ignore rules later for `.env`, SQLite databases, `__pycache__`, `.expo`, and `node_modules`.
 
 The safest approach is to add Krishan's component as a new independent module first, then improve shared structure only after all current behavior is stable.
+
+## 10. Important Notes for Tashini
+
+- Tashini's Technology-Assisted A-to-Z Farming Guidance component is placed under `Backend/pest_control/`.
+- Do not place Tashini's backend logic inside `Backend/guidance/`.
+- Do not place Tashini's backend logic inside `Backend/monitoring/`.
+- Tashini's router is registered in `Backend/main.py` with the prefix `/api/pest-control`.
+- The initial implementation uses simple rule-based logic only; no real AI or ML model is integrated yet.
+- Keep Savinda's monitoring endpoints working exactly as they currently do.
+- Avoid changing Krishan's `Backend/preanalysis/` module unless import compatibility requires it.
+
+Current Tashini backend files:
+
+```text
+Backend/pest_control/
+  __init__.py
+  models.py
+  service.py
+  routes.py
+```
+
+Current Tashini endpoints:
+
+- `GET /api/pest-control/health`
+- `GET /api/pest-control/stages`
+- `POST /api/pest-control/analyze`
