@@ -26,4 +26,9 @@ ENV/
 uploads/
 ml_models/
 
+# Large ML model artifacts
+*.keras
+*.h5
+*.pt
+
 

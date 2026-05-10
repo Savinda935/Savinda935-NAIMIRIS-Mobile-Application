@@ -1,32 +1,35 @@
 import React from "react";
-import { ScrollView, Text, StyleSheet, View } from "react-native";
+import { ImageBackground, ScrollView, Text, StyleSheet, View } from "react-native";
 import PrimaryButton from "../components/ui/PrimaryButton";
 import ScreenHeader from "../components/ui/ScreenHeader";
 import SectionCard from "../components/ui/SectionCard";
 import StatTile from "../components/ui/StatTile";
 import { theme } from "../config/theme";
 
+const heroImage = require("../images/image.png");
+
 export default function HomeScreen({ navigation }) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.hero}>
-        <View style={styles.heroGlow} />
-        <ScreenHeader
-          eyebrow="NAIMIRIS"
-          badge="Wet Zone"
-          title="Profit-driven smart farming command center"
-          subtitle="Plan with confidence, monitor every week, and control pests with precision."
-        />
-        <View style={styles.heroStats}>
-          <View style={styles.statHalf}>
-            <StatTile label="Focus" value="ROI-first" hint="Budget aware" tone="accent" />
+      <ImageBackground source={heroImage} style={styles.hero} imageStyle={styles.heroImage} resizeMode="cover">
+        <View style={styles.heroOverlay}>
+          <ScreenHeader
+            eyebrow="NAIMIRIS"
+            badge="Wet Zone"
+            title="Profit-driven smart farming command center"
+            subtitle="Plan with confidence, monitor every week, and control pests with precision."
+          />
+          <View style={styles.heroStats}>
+            <View style={styles.statHalf}>
+              <StatTile label="Focus" value="ROI-first" hint="Budget aware" tone="accent" />
+            </View>
+            <View style={styles.statHalf}>
+              <StatTile label="Coverage" value="3 stages" hint="Plan. Monitor. Control." />
+            </View>
           </View>
-          <View style={styles.statHalf}>
-            <StatTile label="Coverage" value="3 stages" hint="Plan. Monitor. Control." />
-          </View>
+          <PrimaryButton label="Start pre-analysis" onPress={() => navigation.navigate("LandAnalysis")} />
         </View>
-        <PrimaryButton label="Start pre-analysis" onPress={() => navigation.navigate("LandAnalysis")} />
-      </View>
+      </ImageBackground>
 
       <SectionCard
         title="Pre-analysis decision support"
@@ -61,23 +64,21 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg
   },
   hero: {
-    backgroundColor: theme.colors.surfaceAlt,
     borderRadius: theme.radius.xl,
-    padding: theme.spacing.lg,
     borderWidth: 1,
     borderColor: theme.colors.borderStrong,
     marginBottom: theme.spacing.xl,
-    overflow: "hidden"
+    overflow: "hidden",
+    minHeight: 430
   },
-  heroGlow: {
-    position: "absolute",
-    right: -60,
-    top: -40,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: theme.colors.glow,
-    opacity: 0.7
+  heroImage: {
+    borderRadius: theme.radius.xl
+  },
+  heroOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    padding: theme.spacing.lg,
+    backgroundColor: "rgba(14, 23, 19, 0.58)"
   },
   heroStats: {
     flexDirection: "row",

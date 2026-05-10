@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List
 
 from pydantic import BaseModel, Field
 
@@ -25,3 +25,15 @@ class PreAnalysisResponse(BaseModel):
     expected_revenue: float
     roi: float
     final_farming_recommendations: List[str]
+
+
+class LandSuitabilityImageResponse(BaseModel):
+    filename: str
+    land_size_perch: float
+    suitability: str
+    usable_farming_percentage: float
+    usable_land_perch: float
+    usable_land_sqft: float
+    estimated_plant_count: int
+    land_cover_percentages: Dict[str, float]
+    message: str

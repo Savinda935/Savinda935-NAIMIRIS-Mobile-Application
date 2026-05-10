@@ -6,3 +6,6 @@ reportlab
 python-dotenv
 python-multipart
 ultralytics
+numpy
+pillow
+tensorflow

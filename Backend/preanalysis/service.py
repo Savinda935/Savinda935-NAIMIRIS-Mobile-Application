@@ -1,16 +1,71 @@
 from typing import List
 
-from .models import PreAnalysisRequest, PreAnalysisResponse
+from .models import LandSuitabilityImageResponse, PreAnalysisRequest, PreAnalysisResponse
 
 
 BASE_PLANTS_PER_ACRE = 7000
 BASE_COST_PER_ACRE = 180000
 BASE_YIELD_KG_PER_ACRE = 850
 MARKET_PRICE_PER_KG = 650
+PERCH_TO_SQFT = 272.25
+NAI_MIRIS_PLANT_SPACING_SQFT = 9
+PRACTICAL_FIELD_FACTOR = 0.75
 
 
 def normalize_text(value: str) -> str:
     return value.strip().lower()
+
+
+def classify_land_suitability(usable_percentage: float, unknown_percentage: float) -> str:
+    if unknown_percentage > 50:
+        return "Need clearer image"
+
+    if usable_percentage >= 50:
+        return "Good for farming"
+
+    return "Not good for farming"
+
+
+def estimate_pp1_plant_count(land_size_perch: float, usable_percentage: float, suitability: str) -> int:
+    if suitability != "Good for farming":
+        return 0
+
+    usable_land_perch = land_size_perch * (usable_percentage / 100)
+    usable_sqft = usable_land_perch * PERCH_TO_SQFT
+    raw_plant_count = usable_sqft / NAI_MIRIS_PLANT_SPACING_SQFT
+    return round(raw_plant_count * PRACTICAL_FIELD_FACTOR)
+
+
+def build_land_analysis_response(
+    filename: str,
+    land_size_perch: float,
+    image_analysis: dict
+) -> LandSuitabilityImageResponse:
+    usable_percentage = float(image_analysis["usable_farming_percentage"])
+    unknown_percentage = float(image_analysis["unknown_percentage"])
+    suitability = classify_land_suitability(usable_percentage, unknown_percentage)
+    usable_land_perch = round(land_size_perch * (usable_percentage / 100), 2)
+    usable_land_sqft = round(usable_land_perch * PERCH_TO_SQFT, 2)
+    estimated_plant_count = estimate_pp1_plant_count(land_size_perch, usable_percentage, suitability)
+
+    if suitability == "Need clearer image":
+        message = "More than 50% of the image is unknown. Upload a clearer satellite or top-view land image."
+    elif suitability == "Good for farming":
+        message = "Land is suitable for farming based on usable agriculture and barren/open land area."
+    else:
+        message = "Land is not suitable for farming because usable farming area is below 50%."
+
+    return LandSuitabilityImageResponse(
+        filename=filename,
+        land_size_perch=land_size_perch,
+        suitability=suitability,
+        usable_farming_percentage=usable_percentage,
+        usable_land_perch=usable_land_perch,
+        usable_land_sqft=usable_land_sqft,
+        estimated_plant_count=estimated_plant_count,
+        land_cover_percentages=image_analysis["land_cover_percentages"],
+        message=message
+    )
 
 
 def calculate_land_suitability_score(request: PreAnalysisRequest) -> int:

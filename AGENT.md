@@ -270,6 +270,10 @@ These endpoints belong to Savinda's monitoring component and should continue wor
   - `models.py`
   - `routes.py`
   - `service.py`
+- Krishan's PP1 land-image model integration is isolated in `Backend/preanalysis/ai_model.py`.
+- Krishan's default trained model file is `Backend/preanalysis/loveda_unet_25epoch_best.keras`.
+- The model path can be overridden with `PREANALYSIS_MODEL_PATH`.
+- PP1 backend logic should stay focused on land suitability and estimated plant count only.
 - Add pre-analysis frontend API calls separately.
 - Existing frontend files under `frontend/src/features/preAnalysis/` are mostly placeholder/mock logic.
 - Existing pre-analysis screens can be reused, but they should be connected to real backend APIs later.
@@ -283,13 +287,16 @@ Suggested folder structure:
 ```text
 Backend/preanalysis/
   __init__.py
+  ai_model.py
+  loveda_unet_25epoch_best.keras
   models.py
   routes.py
   service.py
 ```
 
-Suggested endpoints:
+Current / suggested endpoints:
 
+- `POST /api/preanalysis/land-image/analyze`
 - `POST /api/preanalysis/land/suitability`
 - `POST /api/preanalysis/budget/plan`
 - `POST /api/preanalysis/profit/predict`
@@ -302,13 +309,76 @@ Recommended backend responsibilities:
 - `routes.py`: FastAPI endpoint definitions
 - `service.py`: land suitability, budget planning, profit prediction, and decision-support logic
 
-Recommended frontend addition:
+### `POST /api/preanalysis/land-image/analyze`
+
+Accepts a multipart satellite/top-view land image and `land_size_perch`.
+
+The U-Net model analyzes land-cover percentages and groups them according to PP1 backend logic:
+
+- usable farming area: agriculture + barren/open land
+- unusable area: buildings + roads + water + forest
+- unknown area: unclear/unclassified pixels
+
+PP1 decision logic:
+
+- usable farming area >= 50%: `Good for farming`
+- usable farming area < 50%: `Not good for farming`
+- unknown area > 50%: `Need clearer image`
+
+Plant count logic:
+
+- `1 perch = 272.25 sq ft`
+- Nai Miris spacing: `3 ft x 3 ft = 9 sq ft per plant`
+- practical field factor: `75%` for paths and drainage
+
+Final PP1 outputs:
+
+- land suitability
+- usable farming percentage and usable land size
+- estimated Nai Miris plant count
+
+Current frontend addition:
 
 ```text
-frontend/src/services/preAnalysisApi.js
+frontend/src/features/preAnalysis/
+  api/
+    preAnalysisApi.js
+  screens/
+    LandAnalysisScreen.js
 ```
 
-This should contain frontend API calls for Krishan's backend endpoints.
+The original navigation screen remains at:
+
+```text
+frontend/src/screens/LandAnalysisScreen.js
+```
+
+It re-exports the feature screen so existing `RootNavigator.js` and `TabNavigator.js` imports keep working.
+
+Current frontend API functions:
+
+- `analyzeLandImage({ imageAsset, landSizePerch })`
+- `runPreAnalysisDecisionSupport(payload)`
+
+Connected backend endpoint:
+
+- `POST /api/preanalysis/land-image/analyze`
+
+Request format:
+
+- multipart form-data
+- field name: `image`
+- field name: `land_size_perch`
+
+Expected backend response fields currently used by the UI:
+
+- `suitability`
+- `usable_farming_percentage`
+- `usable_land_perch`
+- `usable_land_sqft`
+- `estimated_plant_count`
+- `land_cover_percentages`
+- `message`
 
 ## 8. Current Problems / Warnings
 
