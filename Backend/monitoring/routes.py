@@ -1,7 +1,9 @@
 import time
 from typing import Dict, List, Optional
+import tempfile
+from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 from .models import (
@@ -9,6 +11,8 @@ from .models import (
     AiAlertResponse,
     AiAskRequest,
     AiAskResponse,
+    GerminationAnalysisRequest,
+    GerminationAnalysisResponse,
     Reading,
     StageDecisionRequest,
     StageDecisionResponse,
@@ -21,6 +25,8 @@ from .service import (
     call_gemini_alerts,
     call_gemini_ask,
     compute_summary,
+    analyze_germination_image,
+    evaluate_germination_analysis,
     evaluate_stage_decision,
     evaluate_stage_logic,
     fetch_firebase_reading,
@@ -33,7 +39,12 @@ from .service import (
     insert_reading
 )
 
-router = APIRouter(prefix="", tags=["monitoring"])
+router = APIRouter(prefix="/api/monitoring", tags=["monitoring"])
+
+
+@router.get("/health")
+def health_check() -> Dict[str, str]:
+    return {"status": "ok", "module": "monitoring"}
 
 
 @router.post("/readings")
@@ -114,6 +125,36 @@ def stage_decision(request: StageDecisionRequest) -> StageDecisionResponse:
         reading = request.reading
 
     return evaluate_stage_decision(request.expected_stage, request.ai_stage, reading)
+
+
+@router.post("/analytics/germination/evaluate", response_model=GerminationAnalysisResponse)
+def germination_evaluation(request: GerminationAnalysisRequest) -> GerminationAnalysisResponse:
+    return evaluate_germination_analysis(request)
+
+
+@router.post("/analytics/germination/analyze", response_model=GerminationAnalysisResponse)
+def germination_image_analysis(
+    plant_age_days: int = Form(..., ge=1, le=21),
+    image: UploadFile = File(...)
+) -> GerminationAnalysisResponse:
+    if image.content_type and not image.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Uploaded file must be an image")
+
+    suffix = Path(image.filename or "").suffix or ".jpg"
+    temp_path = None
+
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+            temp_path = temp_file.name
+            temp_file.write(image.file.read())
+
+        return analyze_germination_image(plant_age_days, temp_path)
+    except (FileNotFoundError, RuntimeError) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    finally:
+        image.file.close()
+        if temp_path:
+            Path(temp_path).unlink(missing_ok=True)
 
 
 @router.post("/ai/alerts", response_model=AiAlertResponse)

@@ -162,7 +162,7 @@ export const evaluateStage = (snapshot, stageId, flags = {}) => {
     }
 
     if (isNumber(readings.airHumidity) && isNumber(readings.airTemp) && readings.airHumidity > 90 && readings.airTemp > 30) {
-      pushAlert("alert", "Disease Risk Alert", "High humidity and temperature increase damping-off risk.");
+      pushAlert("alert", "Disease Risk Alert", "High humidity and temperature increase damping-off risk.")
     }
   }
 

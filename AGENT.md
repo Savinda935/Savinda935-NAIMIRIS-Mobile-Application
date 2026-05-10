@@ -114,6 +114,9 @@ Current main dependencies:
 - `python-dotenv`
 - `python-multipart`
 - `ultralytics`
+- `numpy`
+- `pillow`
+- `tensorflow`
 
 ### `Backend/iot_readings.db`
 
@@ -134,6 +137,28 @@ Used for values such as:
 - `FIREBASE_POLL_SECONDS`
 
 This file may contain secrets and should not normally be committed to Git.
+
+### Large ML Model Artifacts
+
+Large trained model files are local runtime artifacts and must not be committed to normal Git history.
+
+Ignored model patterns include:
+
+- `*.keras`
+- `*.h5`
+- `*.pt`
+
+Current local model locations expected by the backend:
+
+- Krishan pre-analysis model: `Backend/preanalysis/loveda_unet_25epoch_best.keras`
+- Tashini pest-control model: `Backend/pest_control/best.pt`
+
+These files should be shared through Git LFS, cloud storage, release assets, or manual setup instructions. If they are needed locally, place them at the paths above or set:
+
+- `PREANALYSIS_MODEL_PATH`
+- `PEST_CONTROL_MODEL_PATH`
+
+Do not add large model files back into Git with `git add -f` unless the repository has been explicitly migrated to Git LFS.
 
 ## 4. Current Frontend Structure
 
@@ -288,7 +313,7 @@ Suggested folder structure:
 Backend/preanalysis/
   __init__.py
   ai_model.py
-  loveda_unet_25epoch_best.keras
+  loveda_unet_25epoch_best.keras  # local/ignored model artifact
   models.py
   routes.py
   service.py
@@ -336,6 +361,8 @@ Final PP1 outputs:
 - land suitability
 - usable farming percentage and usable land size
 - estimated Nai Miris plant count
+
+If TensorFlow is not installed in the active backend Python environment, `Backend/preanalysis/ai_model.py` falls back to lightweight color-based satellite image segmentation so the PP1 flow can still run. The fallback is only a development/PP1 continuity path; install TensorFlow and provide the `.keras` model for trained U-Net inference.
 
 Current frontend addition:
 
@@ -394,17 +421,13 @@ Expected backend response fields currently used by the UI:
 
 ## 9. Safe Next Steps
 
-1. Create Krishan's `Backend/preanalysis/` backend module.
-2. Add `__init__.py`, `models.py`, `routes.py`, and `service.py`.
-3. Use a separate route prefix such as `/api/preanalysis`.
-4. Register the new pre-analysis router in `Backend/main.py`.
-5. Keep Savinda's monitoring module unchanged unless router registration requires a small import/include addition.
-6. Add a frontend API service such as `frontend/src/services/preAnalysisApi.js`.
-7. Connect existing pre-analysis screens to the new backend APIs.
-8. Keep monitoring endpoints working exactly as they currently do.
-9. Add proper ignore rules later for `.env`, SQLite databases, `__pycache__`, `.expo`, and `node_modules`.
-
-The safest approach is to add Krishan's component as a new independent module first, then improve shared structure only after all current behavior is stable.
+1. Keep Savinda's monitoring module unchanged unless router registration requires a small import/include addition.
+2. Keep Krishan's PP1 pre-analysis flow focused on land suitability and estimated plant count.
+3. Keep Tashini's pest-control ML inference isolated in `Backend/pest_control/ai_model.py`.
+4. Add frontend API services inside each feature folder instead of mixing module APIs together.
+5. Do not commit runtime files: `.env`, SQLite databases, `__pycache__`, `.expo`, `node_modules`, or large model artifacts.
+6. If model files must be versioned, migrate them to Git LFS before committing.
+7. Add tests around API request/response contracts before refactoring shared backend structure.
 
 ## 10. Important Notes for Tashini
 
@@ -427,7 +450,7 @@ Current Tashini backend files:
 Backend/pest_control/
   __init__.py
   ai_model.py
-  best.pt
+  best.pt  # local/ignored model artifact
   models.py
   service.py
   routes.py

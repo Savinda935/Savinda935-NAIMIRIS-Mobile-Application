@@ -41,6 +41,24 @@ class StageDecisionRequest(BaseModel):
     reading: Optional[Reading] = None
 
 
+class GerminationAnalysisRequest(BaseModel):
+    plant_age_days: int = Field(..., ge=1, le=21, description="Plant age during the germination window")
+    leaf_prediction: int = Field(..., ge=0, le=1, description="Binary leaf output from the trained model: 0 or 1")
+
+
+class GerminationAnalysisResponse(BaseModel):
+    day_number: int
+    stage_id: str
+    stage_label: str
+    stage_window: str
+    leaf_prediction: int
+    leaf_status: str
+    expected_leaf_by_day7: bool
+    status: str
+    message: str
+    recommendation: str
+
+
 class StageDecisionResponse(BaseModel):
     stage: Optional[str]
     status: str

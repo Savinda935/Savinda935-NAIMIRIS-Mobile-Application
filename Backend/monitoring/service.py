@@ -5,22 +5,29 @@ import os
 import sqlite3
 import time
 from datetime import datetime
+from functools import lru_cache
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import httpx
 import matplotlib
+import numpy as np
 
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
+from PIL import Image
 
+from .ai_model import predict_leaf_presence
 from .models import (
     AiAlertRequest,
     AiAlertResponse,
     AiAskRequest,
     AiAskResponse,
+    GerminationAnalysisRequest,
+    GerminationAnalysisResponse,
     Reading,
     StageDecisionResponse,
     StageEvaluationResponse,
@@ -114,6 +121,9 @@ STAGES = [
 
 STAGE_LABELS = {
     "stage1": "Germination",
+    "stage1a": "Early Germination",
+    "stage1b": "Leaf Emergence",
+    "stage1c": "Established Germination",
     "stage2": "Seedling",
     "stage3": "Vegetative Growth",
     "stage4": "Flowering",
@@ -124,6 +134,9 @@ STAGE_LABEL_ALIASES = {
     "stage1": "stage1",
     "germination": "stage1",
     "germination stage": "stage1",
+    "early germination": "stage1",
+    "leaf emergence": "stage1",
+    "established germination": "stage1",
     "stage2": "stage2",
     "seedling": "stage2",
     "seedling stage": "stage2",
@@ -153,6 +166,59 @@ def normalize_stage_key(stage: Optional[str]) -> Optional[str]:
 
     key = stage.strip().lower()
     return STAGE_LABEL_ALIASES.get(key)
+
+
+def classify_germination_window(plant_age_days: int, leaf_prediction: int) -> GerminationAnalysisResponse:
+    leaf_detected = bool(leaf_prediction)
+
+    if plant_age_days <= 3:
+        stage_id = "stage1a"
+        stage_label = STAGE_LABELS[stage_id]
+        if leaf_detected:
+            status = "Early Leaf Detected"
+            message = "A leaf appeared very early in the germination window."
+            recommendation = "Keep the medium evenly moist and continue monitoring for stable emergence."
+        else:
+            status = "On Track"
+            message = "A leaf is usually not expected yet during the first 1-3 days."
+            recommendation = "Maintain consistent moisture and warm conditions until the emergence window opens."
+
+    elif plant_age_days <= 7:
+        stage_id = "stage1b"
+        stage_label = STAGE_LABELS[stage_id]
+        if leaf_detected:
+            status = "Leaf Emerged"
+            message = "Leaf detection is consistent with a healthy 4-7 day germination window."
+            recommendation = "Continue gentle watering and avoid stressing the young shoot."
+        else:
+            status = "Leaf Missing"
+            message = "By day 7, a leaf should normally be visible."
+            recommendation = "Check watering, seed viability, light exposure, and planting depth."
+
+    else:
+        stage_id = "stage1c"
+        stage_label = STAGE_LABELS[stage_id]
+        if leaf_detected:
+            status = "Established"
+            message = "Leaf presence is stable and the plant is moving beyond germination."
+            recommendation = "Prepare for seedling care and keep the canopy evenly supported."
+        else:
+            status = "Delayed Germination"
+            message = "Leaf is still missing in the 8-21 day window."
+            recommendation = "Review seed quality, watering consistency, and field conditions immediately."
+
+    return GerminationAnalysisResponse(
+        day_number=plant_age_days,
+        stage_id=stage_id,
+        stage_label=stage_label,
+        stage_window="1-3 days" if stage_id == "stage1a" else "4-7 days" if stage_id == "stage1b" else "8-21 days",
+        leaf_prediction=int(leaf_detected),
+        leaf_status="Leaf detected" if leaf_detected else "No leaf detected",
+        expected_leaf_by_day7=plant_age_days >= 4,
+        status=status,
+        message=message,
+        recommendation=recommendation
+    )
 
 
 def is_number(value: Optional[float]) -> bool:
@@ -359,13 +425,12 @@ def evaluate_stage_logic(stage_id: str, reading: Optional[Reading], flags: Dict[
         if is_number(readings["air_humidity"]) and is_number(readings["air_temp"]) and readings["air_humidity"] > 80 and readings["air_temp"] > 28:
             push_alert("alert", "Disease Risk Alert", "Humidity and temperature favor damping-off disease.")
 
-    if stage["id"] == "stage3":
+    if stage["id"] == "stage1":
         if flags.get("slow_growth") and is_number(readings["soil_temp"]) and readings["soil_temp"] > 30:
             push_alert("warning", "Root Stress Warning", "Slow growth with high soil temperature.")
-        if flags.get("slow_growth") and is_number(readings["ec"]) and readings["ec"] < 1.5:
-            push_alert("warning", "Fertiliser Needed", "Slow growth with low EC.")
-        if is_number(readings["air_humidity"]) and is_number(readings["air_temp"]) and readings["air_humidity"] > 80 and readings["air_temp"] > 30:
-            push_alert("alert", "Disease Risk Alert", "High humidity and heat promote fungal disease.")
+
+        if is_number(readings["air_humidity"]) and is_number(readings["air_temp"]) and readings["air_humidity"] > 90 and readings["air_temp"] > 30:
+            push_alert("alert", "Disease Risk Alert", "High humidity and temperature increase damping-off risk.")
 
     if stage["id"] == "stage4":
         if flags.get("no_fruit_set") and is_number(readings["soil_temp"]) and readings["soil_temp"] > 28:
@@ -408,7 +473,7 @@ def heuristic_ai_alerts(request: AiAlertRequest) -> AiAlertResponse:
     humidity = request.readings.get("air_humidity")
     soil = request.readings.get("soil_analog")
     if isinstance(humidity, (int, float)) and humidity > 80:
-        recommendation = "Improve airflow and reduce leaf wetness to lower disease risk."
+        recommendation = "Improve airflow and avoid excess moisture around young plants."
 
     stage = get_stage(request.stage_id)
     if isinstance(soil, (int, float)) and stage.get("dry_threshold") and soil < stage["dry_threshold"]:
@@ -423,6 +488,15 @@ def heuristic_ai_alerts(request: AiAlertRequest) -> AiAlertResponse:
     )
 
 
+def evaluate_germination_analysis(request: GerminationAnalysisRequest) -> GerminationAnalysisResponse:
+    return classify_germination_window(request.plant_age_days, request.leaf_prediction)
+
+
+def analyze_germination_image(plant_age_days: int, image_path: str) -> GerminationAnalysisResponse:
+    leaf_prediction = predict_leaf_presence(image_path)
+    return classify_germination_window(plant_age_days, leaf_prediction)
+
+
 def call_gemini_alerts(request: AiAlertRequest) -> AiAlertResponse:
     if not GEMINI_API_KEY:
         return heuristic_ai_alerts(request)
@@ -430,6 +504,7 @@ def call_gemini_alerts(request: AiAlertRequest) -> AiAlertResponse:
     stage = get_stage(request.stage_id)
     prompt = (
         "You are an agronomy AI assistant for Scotch Bonnet peppers. "
+        "Do not provide disease diagnosis; focus on growth conditions, moisture, and stage progression. "
         "Return ONLY valid JSON with keys: risk_score (0-100 integer), "
         "anomaly_detected (boolean), anomalies (array of short strings), "
         "summary (string), recommendation (string). "

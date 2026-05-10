@@ -6,17 +6,9 @@ export async function analyzeImage({ imageUri, type }) {
   };
 }
 
-export async function fetchAiAlertSummary({ baseUrl, payload }) {
-  const response = await fetch(`${baseUrl}/ai/alerts`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
+import { fetchAiAlertSummary as fetchMonitoringAiAlertSummary } from "../features/monitoring/api/monitoringApi";
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`AI API failed: ${response.status} ${errorText}`);
-  }
 
-  return response.json();
+export async function fetchAiAlertSummary({ payload }) {
+  return fetchMonitoringAiAlertSummary(payload);
 }

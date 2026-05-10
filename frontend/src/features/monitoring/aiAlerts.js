@@ -69,7 +69,7 @@ export function getAiAlertSummary({ readings, statuses, history, stage }) {
   }
 
   if (typeof humidity === "number" && humidity > 80) {
-    recommendation = "Improve airflow and reduce leaf wetness to lower disease risk.";
+    recommendation = "Improve airflow and avoid excess moisture around young plants.";
   }
 
   if (typeof soil === "number" && stage?.dry_threshold && soil < stage.dry_threshold) {

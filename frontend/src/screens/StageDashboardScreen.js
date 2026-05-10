@@ -9,7 +9,6 @@ import SectionCard from "../components/ui/SectionCard";
 import StatTile from "../components/ui/StatTile";
 import PrimaryButton from "../components/ui/PrimaryButton";
 import { theme } from "../config/theme";
-import { BACKEND_BASE_URL } from "../config/constants";
 import { getRealtimeSensorSnapshot } from "../features/monitoring/iotMonitor";
 import { evaluateStage, getStages } from "../features/monitoring/stageLogic";
 import { getAiAlertSummary as getMockAiAlertSummary } from "../features/monitoring/aiAlerts";
@@ -857,7 +856,7 @@ export default function StageDashboardScreen() {
           history: history.slice(-24)
         };
 
-        const result = await fetchAiAlertSummary({ baseUrl: BACKEND_BASE_URL, payload });
+        const result = await fetchAiAlertSummary({ payload });
         if (isMounted && result) {
           setAiSummary(result);
         }
