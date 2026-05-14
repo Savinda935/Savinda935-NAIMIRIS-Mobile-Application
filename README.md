@@ -1,1 +1,1 @@
-# Savinda935-NAIMIRIS-Mobile-Application
+# NAIMIRIS-Mobile-Application
